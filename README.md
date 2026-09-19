@@ -7,8 +7,7 @@ Exemplo de arquitetura DDD em Java Quarkus.
 1. Instale os pré-requisitos;
 2. Clone o projeto;
 3. Crie a configuração;
-4. Instale os pacotes NPM;
-5. Execute o projeto.
+4. Execute o projeto.
 
 ## Instale os pré-requisitos
 
