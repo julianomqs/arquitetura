@@ -34,14 +34,6 @@ Execute o comando na pasta raiz:
 docker-compose build
 ```
 
-## Instale os pacotes NPM
-
-Execute os comandos na pasta raiz:
-
-```
-docker-compose run --rm --no-deps server npm install
-```
-
 ## Execute o projeto
 
 Execute o comando na pasta raiz:
