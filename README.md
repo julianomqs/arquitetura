@@ -1,6 +1,6 @@
 # Arquitetura
 
-Exemplo de arquitetura.
+Exemplo de arquitetura DDD em Java Quarkus.
 
 ## Passos para executar o projeto
 
