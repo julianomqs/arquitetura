@@ -1,0 +1,55 @@
+services:
+  db:
+    image: mysql:8.4.0
+    command: --lc-time-names=pt_BR --mysql-native-password=ON
+    environment:
+      TZ: ${TZ}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    init: true
+    ports:
+      - "${DB_EXTERNAL_PORT}:3306"
+    volumes:
+      - db:/var/lib/mysql
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      MAVEN_CONFIG: /home/.m2
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:3000/q/health"
+        ]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    init: true
+    ports:
+      - "${SERVER_EXTERNAL_PORT}:3000"
+      - "127.0.0.1:${SERVER_DEBUG_PORT}:5005"
+    volumes:
+      - ./:/home/app
+      - ~/.m2:/home/.m2
+
+volumes:
+  db:
