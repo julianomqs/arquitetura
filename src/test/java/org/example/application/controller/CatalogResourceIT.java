@@ -1,6 +1,6 @@
 package org.example.application.controller;
 
-import static io.restassured.RestAssured.given;
+import static org.example.ApiSupport.given;
 import static org.example.ApiSupport.create;
 import static org.example.ApiSupport.json;
 import static org.example.ApiSupport.unique;

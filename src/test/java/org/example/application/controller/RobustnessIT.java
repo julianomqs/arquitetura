@@ -1,6 +1,6 @@
 package org.example.application.controller;
 
-import static io.restassured.RestAssured.given;
+import static org.example.ApiSupport.given;
 import static org.example.ApiSupport.create;
 import static org.example.ApiSupport.json;
 import static org.example.ApiSupport.unique;
@@ -215,7 +215,7 @@ class RobustnessIT {
     int id = invoice("2030-01-01T10:00:00", productA);
     var counter = new java.util.concurrent.atomic.AtomicInteger();
 
-    var statuses = runInParallel(16, () -> json()
+    var statuses = runInParallel(16, () -> json().header("If-Match", "*")
         .body(Map.of("dateTime", "2031-01-" + String.format("%02d", 1 + counter.incrementAndGet() % 28) + "T10:00:00"))
         .patch("/invoices/" + id).statusCode());
 

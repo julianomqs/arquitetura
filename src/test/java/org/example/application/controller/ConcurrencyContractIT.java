@@ -1,6 +1,7 @@
 package org.example.application.controller;
 
-import static io.restassured.RestAssured.given;
+import static org.example.ApiSupport.given;
+import static org.example.ApiSupport.NO_AUTO_IF_MATCH;
 import static org.example.ApiSupport.create;
 import static org.example.ApiSupport.json;
 import static org.example.ApiSupport.unique;
@@ -96,6 +97,76 @@ class ConcurrencyContractIT {
     given().header("If-Match", after).delete("/invoices/" + id).then().statusCode(412);
   }
 
+  // --- If-Match obrigatório ----------------------------------------------------------
+
+  private static io.restassured.specification.RequestSpecification withoutIfMatch() {
+    return json().header(NO_AUTO_IF_MATCH, "true");
+  }
+
+  @Test
+  void mutationsWithoutIfMatchArePreconditionRequired() {
+    int cid = create("/clients", Map.of("name", "cc-428-" + unique()));
+    int pid = create("/products", Map.of("name", "cc-428-" + unique()));
+    int id = invoice(clientId, "2030-01-01T10:00:00", productA);
+    int itemId = given().get("/invoices/" + id + "/items").then().extract().path("[0].id");
+    var before = given().get("/invoices/" + id).then().extract().header("ETag");
+
+    withoutIfMatch().body(Map.of("name", "x")).put("/clients/" + cid).then().statusCode(428)
+        .body("message", notNullValue());
+    withoutIfMatch().body(Map.of("name", "x")).patch("/clients/" + cid).then().statusCode(428);
+    withoutIfMatch().delete("/clients/" + cid).then().statusCode(428);
+    withoutIfMatch().body(Map.of("name", "x")).put("/products/" + pid).then().statusCode(428);
+    withoutIfMatch().body(Map.of("name", "x")).patch("/products/" + pid).then().statusCode(428);
+    withoutIfMatch().delete("/products/" + pid).then().statusCode(428);
+    withoutIfMatch().body(Map.of("number", "X", "dateTime", "2030-01-01T10:00:00", "client", clientId))
+        .put("/invoices/" + id).then().statusCode(428);
+    withoutIfMatch().body(Map.of("number", "X")).patch("/invoices/" + id).then().statusCode(428);
+    withoutIfMatch().delete("/invoices/" + id).then().statusCode(428);
+    withoutIfMatch().body(item(productB)).post("/invoices/" + id + "/items").then().statusCode(428);
+    withoutIfMatch().body(Map.of("quantity", 1, "unitValue", 1, "product", productA))
+        .put("/invoices/" + id + "/items/" + itemId).then().statusCode(428);
+    withoutIfMatch().body(Map.of("quantity", 2)).patch("/invoices/" + id + "/items/" + itemId)
+        .then().statusCode(428);
+    withoutIfMatch().delete("/invoices/" + id + "/items/" + itemId).then().statusCode(428);
+
+    given().get("/invoices/" + id).then().statusCode(200).header("ETag", equalTo(before));
+    given().get("/clients/" + cid).then().statusCode(200);
+    given().get("/products/" + pid).then().statusCode(200);
+  }
+
+  @Test
+  void missingResourceIsNotFoundBeforeThePreconditionIsChecked() {
+    withoutIfMatch().body(Map.of("name", "x")).put("/clients/999999").then().statusCode(404);
+    withoutIfMatch().delete("/invoices/999999").then().statusCode(404);
+    withoutIfMatch().body(item(productA)).post("/invoices/999999/items").then().statusCode(404);
+
+    int id = invoice(clientId, "2030-01-01T10:00:00", productA);
+    withoutIfMatch().delete("/invoices/" + id + "/items/999999").then().statusCode(404);
+  }
+
+  @Test
+  void itemEndpointsUseTheInvoiceEtag() {
+    int id = invoice(clientId, "2030-01-01T10:00:00", productA);
+    var initial = given().get("/invoices/" + id + "/items").then().statusCode(200)
+        .header("ETag", notNullValue()).extract().header("ETag");
+    int itemId = given().get("/invoices/" + id + "/items").then().extract().path("[0].id");
+
+    var afterAdd = json().header("If-Match", initial).body(item(productB)).post("/invoices/" + id + "/items")
+        .then().statusCode(201).header("ETag", notNullValue()).extract().header("ETag");
+    assertFalse(initial.equals(afterAdd));
+
+    json().header("If-Match", initial).body(Map.of("quantity", 5)).patch("/invoices/" + id + "/items/" + itemId)
+        .then().statusCode(412);
+    var afterPatch = json().header("If-Match", afterAdd).body(Map.of("quantity", 5))
+        .patch("/invoices/" + id + "/items/" + itemId)
+        .then().statusCode(200).header("ETag", notNullValue()).extract().header("ETag");
+    given().get("/invoices/" + id).then().header("ETag", equalTo(afterPatch));
+
+    given().header("If-Match", afterAdd).delete("/invoices/" + id + "/items/" + itemId).then().statusCode(412);
+    given().header("If-Match", afterPatch).delete("/invoices/" + id + "/items/" + itemId).then().statusCode(204)
+        .header("ETag", notNullValue());
+  }
+
   // --- ordenação pedida --------------------------------------------------------------
 
   @Test
@@ -138,7 +209,7 @@ class ConcurrencyContractIT {
   void concurrentAddsOfTheSameProductToOneInvoiceYieldASingleItem() throws Exception {
     int id = invoice(clientId, "2030-01-01T10:00:00", productA);
 
-    var statuses = runInParallel(8, () -> json().body(item(productB)).post("/invoices/" + id + "/items").statusCode());
+    var statuses = runInParallel(8, () -> json().header("If-Match", "*").body(item(productB)).post("/invoices/" + id + "/items").statusCode());
 
     assertEquals(1, statuses.stream().filter(s -> s == 201).count(), "statuses: " + statuses);
     assertFalse(statuses.stream().anyMatch(s -> s >= 500), "statuses: " + statuses);

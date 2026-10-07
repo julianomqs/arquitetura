@@ -158,8 +158,10 @@ public class InvoiceController {
 
   @POST
   @Path("/{id}/items")
-  public Response createItem(@PathParam("id") Integer id, @NotNull @Valid CreateInvoiceItemDto dto) {
+  public Response createItem(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
+      @NotNull @Valid CreateInvoiceItemDto dto) {
     var invoice = findByIdInvoiceUseCase.execute(id);
+    ETags.require(ifMatch, invoice.getVersion());
 
     var invoiceItem = mapper.toInvoiceItem(dto);
     invoice.getItems().add(invoiceItem);
@@ -174,7 +176,7 @@ public class InvoiceController {
     var invoiceItemDto = mapper.toInvoiceItemDto(savedInvoiceItem);
     var uri = uriInfo.getAbsolutePathBuilder().path(savedInvoiceItem.getId().toString()).build();
 
-    return Response.created(uri).entity(invoiceItemDto).build();
+    return Response.created(uri).entity(invoiceItemDto).tag(ETags.of(savedInvoice.getVersion())).build();
   }
 
   @PUT
@@ -182,7 +184,7 @@ public class InvoiceController {
   public Response update(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid UpdateInvoiceDto dto) {
     var invoice = findByIdInvoiceUseCase.execute(id);
-    ETags.check(ifMatch, invoice.getVersion());
+    ETags.require(ifMatch, invoice.getVersion());
     var updatedInvoice = mapper.updateInvoice(dto, invoice);
 
     var savedInvoice = findByIdInvoiceUseCase.execute(saveInvoiceUseCase.execute(updatedInvoice).getId());
@@ -196,6 +198,7 @@ public class InvoiceController {
   public Response updateItem(
       @PathParam("id") Integer id,
       @PathParam("itemId") Integer itemId,
+      @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid UpdateItemBodyDto dto) {
     var invoice = findByIdInvoiceUseCase.execute(id);
     var invoiceItem = invoice.getItems()
@@ -203,6 +206,7 @@ public class InvoiceController {
         .filter(i -> i.getId().equals(itemId))
         .findFirst()
         .orElseThrow(() -> new EntityNotFoundException("Item com id " + itemId + " não encontrado"));
+    ETags.require(ifMatch, invoice.getVersion());
 
     mapper.updateInvoiceItem(dto, invoiceItem);
 
@@ -215,7 +219,7 @@ public class InvoiceController {
 
     var invoiceItemDto = mapper.toInvoiceItemDto(savedInvoiceItem);
 
-    return Response.ok(invoiceItemDto).build();
+    return Response.ok(invoiceItemDto).tag(ETags.of(savedInvoice.getVersion())).build();
   }
 
   @PATCH
@@ -223,7 +227,7 @@ public class InvoiceController {
   public Response patch(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid PatchInvoiceDto dto) {
     var invoice = findByIdInvoiceUseCase.execute(id);
-    ETags.check(ifMatch, invoice.getVersion());
+    ETags.require(ifMatch, invoice.getVersion());
     var updatedInvoice = mapper.patchInvoice(dto, invoice);
 
     var savedInvoice = findByIdInvoiceUseCase.execute(saveInvoiceUseCase.execute(updatedInvoice).getId());
@@ -237,6 +241,7 @@ public class InvoiceController {
   public Response patchItem(
       @PathParam("id") Integer id,
       @PathParam("itemId") Integer itemId,
+      @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid PatchItemBodyDto dto) {
     var invoice = findByIdInvoiceUseCase.execute(id);
     var invoiceItem = invoice.getItems()
@@ -244,6 +249,7 @@ public class InvoiceController {
         .filter(i -> i.getId().equals(itemId))
         .findFirst()
         .orElseThrow(() -> new EntityNotFoundException("Item com id " + itemId + " não encontrado"));
+    ETags.require(ifMatch, invoice.getVersion());
 
     mapper.patchInvoiceItem(dto, invoiceItem);
 
@@ -256,14 +262,14 @@ public class InvoiceController {
 
     var invoiceItemDto = mapper.toInvoiceItemDto(savedInvoiceItem);
 
-    return Response.ok(invoiceItemDto).build();
+    return Response.ok(invoiceItemDto).tag(ETags.of(savedInvoice.getVersion())).build();
   }
 
   @DELETE
   @Path("/{id}")
   public Response remove(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch) {
     var invoice = findByIdInvoiceUseCase.execute(id);
-    ETags.check(ifMatch, invoice.getVersion());
+    ETags.require(ifMatch, invoice.getVersion());
 
     removeInvoiceUseCase.execute(invoice);
 
@@ -274,7 +280,8 @@ public class InvoiceController {
   @Path("/{id}/items/{itemId}")
   public Response deleteItem(
       @PathParam("id") Integer id,
-      @PathParam("itemId") Integer itemId) {
+      @PathParam("itemId") Integer itemId,
+      @HeaderParam("If-Match") String ifMatch) {
     var invoice = findByIdInvoiceUseCase.execute(id);
     var invoiceItem = invoice.getItems()
         .stream()
@@ -282,11 +289,13 @@ public class InvoiceController {
         .findFirst()
         .orElseThrow(() -> new EntityNotFoundException("Item com id " + itemId + " não encontrado"));
 
+    ETags.require(ifMatch, invoice.getVersion());
+
     invoice.getItems().remove(invoiceItem);
 
-    saveInvoiceUseCase.execute(invoice);
+    var savedInvoice = findByIdInvoiceUseCase.execute(saveInvoiceUseCase.execute(invoice).getId());
 
-    return Response.noContent().build();
+    return Response.noContent().tag(ETags.of(savedInvoice.getVersion())).build();
   }
 
   @GET
@@ -312,7 +321,7 @@ public class InvoiceController {
 
     var invoiceItemDto = mapper.toInvoiceItemDto(invoiceItem);
 
-    return Response.ok(invoiceItemDto).build();
+    return Response.ok(invoiceItemDto).tag(ETags.of(invoice.getVersion())).build();
   }
 
   @GET
@@ -355,6 +364,6 @@ public class InvoiceController {
         .map(mapper::toInvoiceItemDto)
         .toList();
 
-    return Response.ok(dtos).build();
+    return Response.ok(dtos).tag(ETags.of(invoice.getVersion())).build();
   }
 }

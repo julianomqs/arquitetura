@@ -80,7 +80,7 @@ public class ProductController {
   public Response update(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid CreateProductDto dto) {
     var product = findByIdProductUseCase.execute(id);
-    ETags.check(ifMatch, product.getVersion());
+    ETags.require(ifMatch, product.getVersion());
     var updatedProduct = mapper.updateProduct(dto, product);
 
     var savedProduct = saveProductUseCase.execute(updatedProduct);
@@ -94,7 +94,7 @@ public class ProductController {
   public Response patch(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid PatchProductDto dto) {
     var product = findByIdProductUseCase.execute(id);
-    ETags.check(ifMatch, product.getVersion());
+    ETags.require(ifMatch, product.getVersion());
     var updatedProduct = mapper.patchProduct(dto, product);
 
     var savedProduct = saveProductUseCase.execute(updatedProduct);
@@ -107,7 +107,7 @@ public class ProductController {
   @Path("/{id}")
   public Response remove(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch) {
     var product = findByIdProductUseCase.execute(id);
-    ETags.check(ifMatch, product.getVersion());
+    ETags.require(ifMatch, product.getVersion());
 
     removeProductUseCase.execute(product);
 

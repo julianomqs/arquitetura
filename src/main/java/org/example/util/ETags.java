@@ -13,9 +13,16 @@ public final class ETags {
     return new EntityTag(String.valueOf(version));
   }
 
-  /** Sem If-Match não há checagem; com If-Match, a versão atual precisa estar entre os valores informados. */
-  public static void check(String ifMatch, Integer currentVersion) {
-    if (ifMatch == null || ifMatch.isBlank() || ifMatch.trim().equals("*")) {
+  /**
+   * Exige If-Match: sem o cabeçalho a resposta é 428; com ele, a versão atual precisa estar entre os valores
+   * informados (ou o valor ser "*"), senão a resposta é 412.
+   */
+  public static void require(String ifMatch, Integer currentVersion) {
+    if (ifMatch == null || ifMatch.isBlank()) {
+      throw new ClientErrorException("O cabeçalho If-Match é obrigatório para alterar ou remover o registro.", 428);
+    }
+
+    if (ifMatch.trim().equals("*")) {
       return;
     }
 

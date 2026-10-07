@@ -68,9 +68,18 @@ mvn verify    # unitários + integração; relatório de cobertura em target/jac
 ### Concorrência (ETag / If-Match)
 
 Clientes, produtos e faturas devolvem o cabeçalho `ETag` (a versão do registro) em `POST`, `PUT`, `PATCH` e `GET /{id}`.
-`PUT`, `PATCH` e `DELETE` aceitam `If-Match`: se a versão não bater, a resposta é **412**. Sem o cabeçalho a
-operação continua permitida, mas gravações simultâneas sobre a mesma versão ainda são detectadas e uma delas
-recebe **409**. Qualquer alteração de itens muda a versão da fatura.
+Os endpoints de itens (`/invoices/{id}/items...`) usam o `ETag` da **fatura**: qualquer alteração de item muda a versão dela.
+
+`PUT`, `PATCH` e `DELETE` (e `POST /invoices/{id}/items`) **exigem** `If-Match`:
+
+| Situação | Resposta |
+|---|---|
+| sem `If-Match` | 428 |
+| `If-Match` diferente da versão atual | 412 |
+| `If-Match: *` | aceito, sem comparar versão |
+| recurso inexistente | 404 (vem antes da checagem do cabeçalho) |
+
+Mesmo com `If-Match: *`, duas gravações simultâneas sobre a mesma versão são detectadas e uma delas recebe 409.
 
 ### Erros
 
@@ -82,6 +91,7 @@ Todos os erros têm o formato `{ "message": "..." }`; erros de validação acres
 | 404 | recurso (ou item) inexistente no caminho ou no lote de itens |
 | 409 | unicidade violada em corrida, registro em uso (FK), registro alterado por outra requisição |
 | 412 | `If-Match` não confere com a versão atual |
+| 428 | `If-Match` ausente em `PUT`, `PATCH` ou `DELETE` |
 | 422 | cliente ou produto referenciado no corpo não existe |
 | 500 | erro inesperado, com mensagem genérica |
 

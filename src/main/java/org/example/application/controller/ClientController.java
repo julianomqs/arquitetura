@@ -80,7 +80,7 @@ public class ClientController {
   public Response update(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid CreateClientDto dto) {
     var client = findByIdClientUseCase.execute(id);
-    ETags.check(ifMatch, client.getVersion());
+    ETags.require(ifMatch, client.getVersion());
     var updatedClient = mapper.updateClient(dto, client);
 
     var savedClient = saveClientUseCase.execute(updatedClient);
@@ -94,7 +94,7 @@ public class ClientController {
   public Response patch(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch,
       @NotNull @Valid PatchClientDto dto) {
     var client = findByIdClientUseCase.execute(id);
-    ETags.check(ifMatch, client.getVersion());
+    ETags.require(ifMatch, client.getVersion());
     var updatedClient = mapper.patchClient(dto, client);
 
     var savedClient = saveClientUseCase.execute(updatedClient);
@@ -107,7 +107,7 @@ public class ClientController {
   @Path("/{id}")
   public Response remove(@PathParam("id") Integer id, @HeaderParam("If-Match") String ifMatch) {
     var client = findByIdClientUseCase.execute(id);
-    ETags.check(ifMatch, client.getVersion());
+    ETags.require(ifMatch, client.getVersion());
 
     removeClientUseCase.execute(client);
 
